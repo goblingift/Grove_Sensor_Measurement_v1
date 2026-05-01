@@ -1,35 +1,59 @@
 #include "HX711.h"
-// Connect the grove cable of HX711 board to Grove shield: D1/A1
-const int HX711_DT_PIN  = 3;   // ESP32S3 GPIO3/D2/A2
-const int HX711_SCK_PIN = 2;   // ESP32S3 GPIO2/D1/A1
+
+const int DT_PIN  = 3;  // ESP32S3 GPIO3/D2/A2
+const int SCK_PIN = 2;  // ESP32S3 GPIO2/D1/A1
 
 HX711 scale;
 
-void setup() {
-  Serial.println("Initializing scale!");
-  Serial.begin(115200);
+const float KNOWN_WEIGHT_GRAMS = 1638.0;
 
-  // Initialize HX711
-  scale.begin(HX711_DT_PIN, HX711_SCK_PIN);
-  Serial.println("HX711 ready on XIAO ESP32‑S3");
+void waitForEnter() {
+  while (Serial.available()) Serial.read();
+  while (!Serial.available()) { delay(10); }
+  while (Serial.available()) Serial.read();
+}
+
+void setup() {
+  Serial.begin(9600);
+  delay(1000);
+
+  Serial.println("\n=== HX711 Calibration (ESP32S3) ===");
+  Serial.print("DT="); Serial.print(DT_PIN); Serial.println(" (D2/A2)");
+  Serial.print("SCK="); Serial.print(SCK_PIN); Serial.println(" (D1/A1)");
+
+  scale.begin(DT_PIN, SCK_PIN);  // Your library API
+
+  Serial.println("\n1) Remove all weight, then press ENTER");
+  waitForEnter();
+
+  scale.tare(20);  // Zero empty scale
+  Serial.println("Tare done.");
+
+  Serial.println("\n2) Put the 1638 g test weight on the scale, then press ENTER");
+  waitForEnter();
+
+  // Raw value = average - tare offset
+  float rawValue = scale.read_average(20) - scale.get_offset();
+  float calibrationFactor = rawValue / KNOWN_WEIGHT_GRAMS;
+
+  Serial.println("\n=== RESULTS ===");
+  Serial.print("Raw value: "); Serial.println(rawValue, 0);
+  Serial.print("Calibration factor: "); Serial.println(calibrationFactor, 8);
+
+  scale.set_scale(calibrationFactor);  // Apply calibration
+  Serial.println("Calibration saved!");
+
+  Serial.println("\n3) Remove test weight, press ENTER for live mode");
+  waitForEnter();
+  Serial.println("Live readings (g):");
 }
 
 void loop() {
-  if (scale.is_ready()) {
-    scale.set_scale();    
-    Serial.println("Tare... remove any weights from the scale.");
-    delay(5000);
-    scale.tare();
-    Serial.println("Tare done...");
-    Serial.print("Place a known weight on the scale...");
-    delay(5000);
-    long reading = scale.get_units(10);
-    Serial.print("Result: ");
-    Serial.println(reading);
-  } 
-  else {
-    Serial.println("HX711 not found.");
-  }
+  float weight = scale.get_units(10);  // Calibrated weight, 10x average
 
-  delay(10000);
+  Serial.print("Weight: ");
+  Serial.print(weight, 1);
+  Serial.println(" g");
+
+  delay(1000);
 }
