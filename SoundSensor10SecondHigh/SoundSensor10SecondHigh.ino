@@ -1,4 +1,4 @@
-const int pinAdc = A8;
+const int soundSensorPinAdc = A8;
 
 TaskHandle_t soundTaskHandle = NULL;
 
@@ -12,7 +12,7 @@ void soundRecorderTask(void *parameter) {
       long sum = 0;
 
       for (int i = 0; i < 32; i++) {
-        sum += analogRead(pinAdc);
+        sum += analogRead(soundSensorPinAdc);
       }
 
       sum >>= 5;   // divide by 32
